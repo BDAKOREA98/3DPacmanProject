@@ -9,7 +9,7 @@ using UnityEngine.UI;
 /// RenderTexture에 그리고, 그 결과를 UI(RawImage)에 보여 준다.
 /// 씬에 이름에 "Minimap"이 들어간 RawImage(예: 직접 만든 MinimapUI)가 있으면 새 UI를 만들지 않고 그것에 표시한다.
 /// 카메라의 Target Texture나 그 RawImage의 Texture에 RenderTexture 에셋이 지정돼 있으면 그것을 그대로 쓴다.
-/// 플레이어(노란 원)와 적(각자의 색 원)은 미니맵에만 보이는 표시로 나타낸다.
+/// 플레이어(초록 원)와 적(빨간 원)은 미니맵에만 보이는 표시로 나타낸다.
 /// Play 시작 시(그리고 씬을 다시 불러올 때마다) 자동으로 만들어지므로 씬에 따로 배치할 필요가 없다.
 /// </summary>
 public class MinimapUI : MonoBehaviour
@@ -23,7 +23,8 @@ public class MinimapUI : MonoBehaviour
     private const float CameraHeight = 60f;
     private const float MarkerHeight = 15f;
     private const float MapMargin = 1.05f;     // 미로 가장자리 여유
-    private static readonly Color PlayerMarkerColor = new Color(1f, 0.92f, 0.1f);
+    private static readonly Color PlayerMarkerColor = Color.green;
+    private static readonly Color EnemyMarkerColor = Color.red;
 
     private Camera _camera;
     private RenderTexture _renderTexture;
@@ -213,13 +214,7 @@ public class MinimapUI : MonoBehaviour
 
         foreach (Enemy enemy in FindObjectsByType<Enemy>(FindObjectsSortMode.None))
         {
-            Color color = Color.red;
-            if (enemy.TryGetComponent(out Renderer enemyRenderer))
-            {
-                color = enemyRenderer.material.color;
-            }
-
-            AddMarker(enemy.transform, color, 5f);
+            AddMarker(enemy.transform, EnemyMarkerColor, 5f);
         }
     }
 
