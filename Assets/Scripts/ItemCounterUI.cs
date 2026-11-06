@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -13,6 +14,19 @@ public class ItemCounterUI : MonoBehaviour
     private Text _label;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Bootstrap()
+    {
+        // 씬을 다시 불러와도(재시작) 새 씬에 다시 만들어지도록 등록
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        Create();
+    }
+
+    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Create();
+    }
+
     private static void Create()
     {
         if (FindFirstObjectByType<ItemCounterUI>() != null)

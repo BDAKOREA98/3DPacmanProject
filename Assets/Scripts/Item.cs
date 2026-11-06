@@ -23,6 +23,12 @@ public class Item : MonoBehaviour
     // 에디터에서 Build Items로 미리 만든 아이템도 값이 저장되도록 직렬화한다.
     [SerializeField] private int value = 10;
 
+    /// <summary>점수를 0으로 되돌린다(게임 재시작 시).</summary>
+    public static void ResetScore()
+    {
+        Score = 0;
+    }
+
     public void Initialize(int itemValue)
     {
         value = itemValue;

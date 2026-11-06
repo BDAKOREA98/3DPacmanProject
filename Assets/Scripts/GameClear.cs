@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -11,6 +12,19 @@ public class GameClear : MonoBehaviour
     private bool _cleared;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Bootstrap()
+    {
+        // 씬을 다시 불러와도(재시작) 새 씬에 다시 만들어지도록 등록
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        Create();
+    }
+
+    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Create();
+    }
+
     private static void Create()
     {
         // 이전 Play에서 멈춘 채 끝났더라도 항상 정상 속도로 시작

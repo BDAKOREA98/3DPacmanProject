@@ -19,6 +19,9 @@ public class Enemy : MonoBehaviour
         new Vector2Int(0, 1),
     };
 
+    /// <summary>적이 플레이어에게 닿았을 때 호출된다.</summary>
+    public static event System.Action PlayerCaught;
+
     // 모든 Enemy의 Collider. 서로 부딪혀 길이 막히지 않도록 충돌을 무시시키는 데 쓴다.
     private static readonly List<Collider> AllColliders = new List<Collider>();
 
@@ -33,6 +36,7 @@ public class Enemy : MonoBehaviour
 
     private Rigidbody _rigidbody;
     private BoxCollider _boxCollider;
+    private Collider _playerCollider;
 
     private MazeBuilder _maze;
     private float _moveSpeed;
@@ -87,9 +91,9 @@ public class Enemy : MonoBehaviour
 
         // 적이 플레이어를 막지 않도록 서로의 충돌은 무시한다.
         PlayerMove player = FindFirstObjectByType<PlayerMove>();
-        if (player != null && player.TryGetComponent(out Collider playerCollider))
+        if (player != null && player.TryGetComponent(out _playerCollider))
         {
-            Physics.IgnoreCollision(_boxCollider, playerCollider);
+            Physics.IgnoreCollision(_boxCollider, _playerCollider);
         }
 
         _row = row;
@@ -106,6 +110,8 @@ public class Enemy : MonoBehaviour
         {
             return;
         }
+
+        CheckPlayerContact();
 
         Vector3 target = CellToWorld(_targetRow, _targetCol);
         Vector3 toTarget = target - _rigidbody.position;
@@ -143,6 +149,23 @@ public class Enemy : MonoBehaviour
         {
             ReverseToLastCell();
         }
+    }
+
+    // 물리 충돌은 서로 무시하므로, Collider 영역이 겹치는지로 접촉을 판정한다.
+    private void CheckPlayerContact()
+    {
+        if (_playerCollider != null && _boxCollider.bounds.Intersects(_playerCollider.bounds))
+        {
+            PlayerCaught?.Invoke();
+        }
+    }
+
+    // 에디터에서 Play 모드 진입 시(도메인 리로드를 끈 경우에도) 정적 값을 초기화
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        PlayerCaught = null;
+        AllColliders.Clear();
     }
 
     private void Arrive(Vector3 target)

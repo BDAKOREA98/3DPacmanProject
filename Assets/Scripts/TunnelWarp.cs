@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 팩맨처럼 터널 행의 한쪽 끝으로 나가면 반대쪽 끝으로 순간이동시킨다.
@@ -12,6 +13,19 @@ public class TunnelWarp : MonoBehaviour
     private CameraMove _camera;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Bootstrap()
+    {
+        // 씬을 다시 불러와도(재시작) 새 씬에 다시 만들어지도록 등록
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        Create();
+    }
+
+    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        Create();
+    }
+
     private static void Create()
     {
         if (FindFirstObjectByType<TunnelWarp>() != null)
