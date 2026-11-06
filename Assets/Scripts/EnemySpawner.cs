@@ -14,6 +14,8 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private float frightenedDuration = 8f;
     [Range(0.1f, 1f)]
     [SerializeField] private float frightenedSpeedMultiplier = 0.5f;
+    [Tooltip("큰 아이템을 먹은 동안 적(3D 모델)에 덧입히는 색.")]
+    [SerializeField] private Color frightenedColor = new Color(0.2f, 0.35f, 1f);
 
     [Header("3D 모델 (선택): 지정하면 큐브 대신 이 모델이 보인다")]
     [SerializeField] private GameObject modelPrefab;
@@ -64,7 +66,7 @@ public class EnemySpawner : MonoBehaviour
             enemyScale.x / parentScale.x, enemyScale.y / parentScale.y, enemyScale.z / parentScale.z);
 
         Enemy enemy = enemyObject.AddComponent<Enemy>();
-        enemy.SetFrightenedSettings(frightenedDuration, frightenedSpeedMultiplier);
+        enemy.SetFrightenedSettings(frightenedDuration, frightenedSpeedMultiplier, frightenedColor);
 
         if (modelPrefab != null)
         {
