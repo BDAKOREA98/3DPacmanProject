@@ -118,11 +118,23 @@ public class Enemy : MonoBehaviour
 
     /// <summary>
     /// 기본 큐브 대신 3D 모델을 보여 준다. 큐브는 충돌/물리용으로 남기고 화면에서만 숨긴다.
-    /// 크기(worldScale)는 프리팹 원래 크기에 곱하는 배율, 위치(오프셋)는 월드 단위 값이다. (Initialize 전에 호출)
+    /// 크기(worldScale)는 프리팹 원래 크기에 곱하는 배율, 위치(worldOffset)는 월드 단위,
+    /// 회전(eulerRotation)은 적의 정면 기준 오일러 각도다. (Initialize 전에 호출)
     /// </summary>
-    public void AttachModel(GameObject prefab, Vector3 worldScale, Vector3 worldOffset, float yaw)
+    public void AttachModel(GameObject prefab, Vector3 worldScale, Vector3 worldOffset, Vector3 eulerRotation)
     {
-        GameObject model = Instantiate(prefab, transform);
+        // 적 큐브의 스케일(1,2,1)이 모델을 찌그러뜨리지 않도록, 스케일을 정확히 상쇄한 중간 오브젝트를 둔다.
+        // 이 오브젝트의 월드 스케일은 (1,1,1)이라서 그 아래의 모델은 어떻게 회전해도 늘어나지 않는다.
+        Vector3 parentScale = transform.lossyScale;
+
+        Transform modelRoot = new GameObject("ModelRoot").transform;
+        modelRoot.SetParent(transform, false);
+        modelRoot.localPosition = new Vector3(
+            worldOffset.x / parentScale.x, worldOffset.y / parentScale.y, worldOffset.z / parentScale.z);
+        modelRoot.localRotation = Quaternion.identity;
+        modelRoot.localScale = new Vector3(1f / parentScale.x, 1f / parentScale.y, 1f / parentScale.z);
+
+        GameObject model = Instantiate(prefab, modelRoot);
         model.name = "Model";
 
         // 모델에 딸린 Collider/Rigidbody는 적의 충돌 판정과 섞이지 않도록 제거한다.
@@ -136,17 +148,11 @@ public class Enemy : MonoBehaviour
             Destroy(modelBody);
         }
 
-        // 적 큐브의 스케일(1,2,1)이 모델을 찌그러뜨리지 않도록 상쇄해서 월드 기준 크기로 맞춘다.
-        Vector3 parentScale = transform.lossyScale;
         // worldScale은 프리팹 원래 크기에 곱하는 배율이다. (1이면 에셋 크기 그대로, 2면 두 배)
         Vector3 baseScale = model.transform.localScale;
-        model.transform.localScale = new Vector3(
-            baseScale.x * worldScale.x / parentScale.x,
-            baseScale.y * worldScale.y / parentScale.y,
-            baseScale.z * worldScale.z / parentScale.z);
-        model.transform.localPosition = new Vector3(
-            worldOffset.x / parentScale.x, worldOffset.y / parentScale.y, worldOffset.z / parentScale.z);
-        model.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.Euler(eulerRotation);
+        model.transform.localScale = Vector3.Scale(baseScale, worldScale);
 
         _modelRenderers = model.GetComponentsInChildren<Renderer>();
 

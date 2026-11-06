@@ -22,8 +22,8 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private Vector3 modelScale = Vector3.one;
     [Tooltip("적 중심(큐브 중앙) 기준 모델 위치(월드 단위). 모델의 발 위치가 피벗이면 (0, -1, 0).")]
     [SerializeField] private Vector3 modelOffset = new Vector3(0f, -1f, 0f);
-    [Tooltip("모델이 바라보는 방향이 적의 정면(+Z)과 다를 때 Y축으로 돌리는 각도.")]
-    [SerializeField] private float modelYaw = 0f;
+    [Tooltip("모델이 누워 있거나 다른 방향을 볼 때 돌리는 각도(오일러). 누워 있으면 X를 -90 또는 90, 정면이 다르면 Y를 90/180/-90으로 바꿔 보세요.")]
+    [SerializeField] private Vector3 modelRotation = new Vector3(-90f, 0f, 0f);
 
     [Header("적")]
     [SerializeField] private Vector3 enemyScale = new Vector3(1f, 2f, 1f);
@@ -81,7 +81,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (modelPrefab != null)
         {
-            enemy.AttachModel(modelPrefab, modelScale, modelOffset, modelYaw);
+            enemy.AttachModel(modelPrefab, modelScale, modelOffset, modelRotation);
         }
         enemy.Initialize(maze, row, col, moveSpeed, enemyScale.y * 0.5f);
     }
