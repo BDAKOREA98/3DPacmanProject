@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// 플레이어가 항상 자신의 정면(transform.forward)으로 자동 전진한다.
-/// A/D 키를 누를 때마다 Y축 기준으로 정확히 90도씩 즉시 회전한다.
+/// A/D 키를 누를 때마다 Y축 기준으로 정확히 90도씩, S 키를 누르면 180도 즉시 회전한다.
 /// BoxCast로 벽을 검사해 정면 벽 앞에서 멈추고, 벽이 너무 가까운 방향으로는 회전하지 않는다.
 /// 입력은 Update, 물리 검사와 이동은 FixedUpdate에서 처리한다.
 /// </summary>
@@ -28,6 +28,7 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float skinWidth = 0.02f;
 
     private const float TurnAngle = 90f;
+    private const float ReverseAngle = 180f;
     private const float MaxFloorNormalY = 0.5f; // 법선의 |y|가 이 값 이상이면 바닥/천장으로 보고 무시
     private const int MaxQueuedTurns = 4;
 
@@ -93,6 +94,11 @@ public class PlayerMove : MonoBehaviour
         else if (keyboard.dKey.wasPressedThisFrame)
         {
             EnqueueTurn(TurnAngle);
+        }
+        // S 키: 뒤로 돌기 (180도). 뒤쪽 벽이 너무 가까우면 다른 회전과 같이 무시된다.
+        else if (keyboard.sKey.wasPressedThisFrame)
+        {
+            EnqueueTurn(ReverseAngle);
         }
     }
 
