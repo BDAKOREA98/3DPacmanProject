@@ -4,20 +4,45 @@ using UnityEngine;
 /// <summary>
 /// 플레이어가 닿으면 사라지며 점수를 올리는 아이템.
 /// Collider는 Trigger여야 하며, ItemSpawner가 아이템을 만들 때 자동으로 붙인다.
+/// 씬에 남아 있는 아이템 수를 Remaining으로 추적한다.
 /// </summary>
 public class Item : MonoBehaviour
 {
     /// <summary>획득한 아이템 점수가 누적된 값.</summary>
     public static int Score { get; private set; }
 
+    /// <summary>현재 씬에 남아 있는 아이템 수.</summary>
+    public static int Remaining { get; private set; }
+
     /// <summary>아이템을 먹을 때마다 해당 아이템의 점수와 함께 호출된다.</summary>
     public static event Action<int> Collected;
 
-    private int _value;
+    /// <summary>남은 아이템 수가 바뀔 때마다 새 개수와 함께 호출된다.</summary>
+    public static event Action<int> RemainingChanged;
 
-    public void Initialize(int value)
+    // 에디터에서 Build Items로 미리 만든 아이템도 값이 저장되도록 직렬화한다.
+    [SerializeField] private int value = 10;
+
+    public void Initialize(int itemValue)
     {
-        _value = value;
+        value = itemValue;
+    }
+
+    private void Awake()
+    {
+        Remaining++;
+        RemainingChanged?.Invoke(Remaining);
+    }
+
+    private void OnDestroy()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        Remaining--;
+        RemainingChanged?.Invoke(Remaining);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -27,17 +52,19 @@ public class Item : MonoBehaviour
             return;
         }
 
-        Score += _value;
-        Collected?.Invoke(_value);
+        Score += value;
+        Collected?.Invoke(value);
 
         Destroy(gameObject);
     }
 
-    // 에디터에서 Play 모드 진입 시(도메인 리로드를 끈 경우에도) 점수를 초기화
+    // 에디터에서 Play 모드 진입 시(도메인 리로드를 끈 경우에도) 정적 값을 초기화
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics()
     {
         Score = 0;
+        Remaining = 0;
         Collected = null;
+        RemainingChanged = null;
     }
 }
