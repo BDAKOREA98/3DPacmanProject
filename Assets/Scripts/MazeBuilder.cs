@@ -15,7 +15,14 @@ public class MazeBuilder : MonoBehaviour
     [SerializeField] private float cellSize = 2f;
     [SerializeField] private float wallHeight = 3f;
 
+    // 벽과 바닥의 색이 달라야 화면과 미니맵에서 구분된다.
+    [SerializeField] private Color wallColor = new Color(0.1f, 0.25f, 0.95f);
+    [SerializeField] private Color floorColor = new Color(0.03f, 0.03f, 0.08f);
+
     public float CellSize => cellSize;
+
+    private Material _wallMaterial;
+    private Material _floorMaterial;
 
     private void Start()
     {
@@ -32,6 +39,10 @@ public class MazeBuilder : MonoBehaviour
 
         int rows = MazeLayout.RowCount;
         int cols = MazeLayout.ColCount;
+
+        // 모든 벽/바닥이 같은 Material을 공유한다. (큐브마다 Material이 복제되지 않는다)
+        _wallMaterial = GetMaterial("MazeWall", wallColor);
+        _floorMaterial = GetMaterial("MazeFloor", floorColor);
 
         CreateFloor(cols, rows);
 
@@ -50,7 +61,8 @@ public class MazeBuilder : MonoBehaviour
 
                 CreateCube($"Wall_{row}_{col}",
                     new Vector3(x, wallHeight * 0.5f, z),
-                    new Vector3(cellSize, wallHeight, cellSize));
+                    new Vector3(cellSize, wallHeight, cellSize),
+                    _wallMaterial);
             }
         }
 
@@ -85,12 +97,16 @@ public class MazeBuilder : MonoBehaviour
     {
         const float thickness = 0.1f;
 
+        // 윗면을 아주 조금(0.02) 위로 둬서, 같은 높이(Y=0)의 Plane과 겹쳐 깜빡이는 현상을 막는다.
+        const float topHeight = 0.02f;
+
         CreateCube("Floor",
-            new Vector3(0f, -thickness * 0.5f, 0f),
-            new Vector3(cols * cellSize, thickness, rows * cellSize));
+            new Vector3(0f, topHeight - thickness * 0.5f, 0f),
+            new Vector3(cols * cellSize, thickness, rows * cellSize),
+            _floorMaterial);
     }
 
-    private void CreateCube(string cubeName, Vector3 localPosition, Vector3 localScale)
+    private void CreateCube(string cubeName, Vector3 localPosition, Vector3 localScale, Material material)
     {
         GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
         cube.name = cubeName;
@@ -98,7 +114,62 @@ public class MazeBuilder : MonoBehaviour
         cube.transform.localPosition = localPosition;
         cube.transform.localScale = localScale;
 
+        cube.GetComponent<Renderer>().sharedMaterial = material;
+
         RegisterCreated(cube, "Build Maze");
+    }
+
+    /// <summary>
+    /// 기본 큐브 Material을 복사해 색만 바꾼 Material을 돌려준다.
+    /// 에디터에서 미리 만들 때는 Assets/Materials 에 에셋으로 저장해 씬에 계속 남게 한다.
+    /// </summary>
+    private static Material GetMaterial(string materialName, Color color)
+    {
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            const string folder = "Assets/Materials";
+            string path = $"{folder}/{materialName}.mat";
+
+            Material asset = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (asset == null)
+            {
+                if (!AssetDatabase.IsValidFolder(folder))
+                {
+                    AssetDatabase.CreateFolder("Assets", "Materials");
+                }
+
+                asset = CreateColoredMaterial(materialName);
+                AssetDatabase.CreateAsset(asset, path);
+            }
+
+            asset.color = color;
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssetIfDirty(asset);
+            return asset;
+        }
+#endif
+        Material material = CreateColoredMaterial(materialName);
+        material.color = color;
+        return material;
+    }
+
+    // 렌더 파이프라인(URP)의 기본 큐브 Material과 같은 셰이더로 새 Material을 만든다.
+    private static Material CreateColoredMaterial(string materialName)
+    {
+        GameObject temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        Material source = temp.GetComponent<Renderer>().sharedMaterial;
+
+        if (Application.isPlaying)
+        {
+            Destroy(temp);
+        }
+        else
+        {
+            DestroyImmediate(temp);
+        }
+
+        return new Material(source) { name = materialName };
     }
 
     private void MarkSceneChanged()
