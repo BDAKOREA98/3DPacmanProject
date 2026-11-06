@@ -39,7 +39,7 @@ public class Enemy : MonoBehaviour
     private Collider _playerCollider;
     private Renderer _renderer;
     private Renderer[] _modelRenderers;                       // 3D 모델을 붙였을 때 색을 입힐 대상
-    private readonly MaterialPropertyBlock _tintBlock = new MaterialPropertyBlock();
+    private MaterialPropertyBlock _tintBlock;
 
     private MazeBuilder _maze;
     private float _moveSpeed;
@@ -68,6 +68,9 @@ public class Enemy : MonoBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _boxCollider = GetComponent<BoxCollider>();
         _renderer = GetComponent<Renderer>();
+
+        // Unity 객체는 필드 초기화 대신 Awake에서 만든다. (필드 초기화 시점에는 Unity 객체가 안전하게 만들어지지 않을 수 있다)
+        _tintBlock = new MaterialPropertyBlock();
 
         // 플레이어와 같은 물리 설정: 충돌해도 회전하지 않고, 마찰이 없고, 보간 사용
         _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
@@ -270,6 +273,7 @@ public class Enemy : MonoBehaviour
         // 3D 모델이 있으면 Material을 복제하지 않고 색만 덧입힌다(PropertyBlock). 원래 상태로 돌아가면 해제.
         if (_modelRenderers != null)
         {
+            _tintBlock ??= new MaterialPropertyBlock();
             _tintBlock.Clear();
             if (frightened)
             {
