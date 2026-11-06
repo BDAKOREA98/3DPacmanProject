@@ -29,6 +29,13 @@ public class Item : MonoBehaviour
         Score = 0;
     }
 
+    /// <summary>점수를 더하고 Collected 이벤트를 호출한다. (남은 아이템 수에는 영향을 주지 않는 보너스 아이템 등에도 사용)</summary>
+    public static void AddScore(int value)
+    {
+        Score += value;
+        Collected?.Invoke(value);
+    }
+
     public void Initialize(int itemValue)
     {
         value = itemValue;
@@ -58,8 +65,7 @@ public class Item : MonoBehaviour
             return;
         }
 
-        Score += value;
-        Collected?.Invoke(value);
+        AddScore(value);
 
         Destroy(gameObject);
     }
