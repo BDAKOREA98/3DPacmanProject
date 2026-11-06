@@ -1,3 +1,7 @@
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.SceneManagement;
+#endif
 using UnityEngine;
 
 /// <summary>
@@ -22,7 +26,7 @@ public class MazeBuilder : MonoBehaviour
     }
 
     [ContextMenu("Build Maze")]
-    private void BuildMaze()
+    public void BuildMaze()
     {
         ClearMaze();
 
@@ -49,10 +53,12 @@ public class MazeBuilder : MonoBehaviour
                     new Vector3(cellSize, wallHeight, cellSize));
             }
         }
+
+        MarkSceneChanged();
     }
 
     [ContextMenu("Clear Maze")]
-    private void ClearMaze()
+    public void ClearMaze()
     {
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
@@ -64,9 +70,15 @@ public class MazeBuilder : MonoBehaviour
             }
             else
             {
+#if UNITY_EDITOR
+                Undo.DestroyObjectImmediate(child);
+#else
                 DestroyImmediate(child);
+#endif
             }
         }
+
+        MarkSceneChanged();
     }
 
     private void CreateFloor(int cols, int rows)
@@ -85,5 +97,29 @@ public class MazeBuilder : MonoBehaviour
         cube.transform.SetParent(transform, false);
         cube.transform.localPosition = localPosition;
         cube.transform.localScale = localScale;
+
+        RegisterCreated(cube, "Build Maze");
+    }
+
+    private void MarkSceneChanged()
+    {
+#if UNITY_EDITOR
+        // 에디터에서 미리 만든 경우 씬을 저장 대상으로 표시
+        if (!Application.isPlaying)
+        {
+            EditorSceneManager.MarkSceneDirty(gameObject.scene);
+        }
+#endif
+    }
+
+    private static void RegisterCreated(GameObject created, string label)
+    {
+#if UNITY_EDITOR
+        // 에디터에서 만든 오브젝트를 Ctrl+Z로 되돌릴 수 있게 등록
+        if (!Application.isPlaying)
+        {
+            Undo.RegisterCreatedObjectUndo(created, label);
+        }
+#endif
     }
 }

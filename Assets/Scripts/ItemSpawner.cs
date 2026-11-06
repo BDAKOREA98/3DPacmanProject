@@ -1,3 +1,7 @@
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.SceneManagement;
+#endif
 using UnityEngine;
 
 /// <summary>
@@ -24,7 +28,7 @@ public class ItemSpawner : MonoBehaviour
     }
 
     [ContextMenu("Build Items")]
-    private void BuildItems()
+    public void BuildItems()
     {
         ClearItems();
 
@@ -65,7 +69,7 @@ public class ItemSpawner : MonoBehaviour
     }
 
     [ContextMenu("Clear Items")]
-    private void ClearItems()
+    public void ClearItems()
     {
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
@@ -77,15 +81,22 @@ public class ItemSpawner : MonoBehaviour
             }
             else
             {
+#if UNITY_EDITOR
+                Undo.DestroyObjectImmediate(child);
+#else
                 DestroyImmediate(child);
+#endif
             }
         }
+
+        MarkSceneChanged();
     }
 
     private void CreateItem(string itemName, Vector3 worldPosition, float size, int score)
     {
         GameObject item = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         item.name = itemName;
+        RegisterCreated(item, "Build Items");
         item.transform.SetParent(transform, false);
         item.transform.position = worldPosition;
 
@@ -100,5 +111,27 @@ public class ItemSpawner : MonoBehaviour
         item.GetComponent<Renderer>().material.color = itemColor;
 
         item.AddComponent<Item>().Initialize(score);
+    }
+
+    private void MarkSceneChanged()
+    {
+#if UNITY_EDITOR
+        // 에디터에서 미리 만든 경우 씬을 저장 대상으로 표시
+        if (!Application.isPlaying)
+        {
+            EditorSceneManager.MarkSceneDirty(gameObject.scene);
+        }
+#endif
+    }
+
+    private static void RegisterCreated(GameObject created, string label)
+    {
+#if UNITY_EDITOR
+        // 에디터에서 만든 오브젝트를 Ctrl+Z로 되돌릴 수 있게 등록
+        if (!Application.isPlaying)
+        {
+            Undo.RegisterCreatedObjectUndo(created, label);
+        }
+#endif
     }
 }
