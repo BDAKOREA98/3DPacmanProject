@@ -5,12 +5,13 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// 렉의 원인을 찾기 위한 진단 화면. F3 키로 켜고 끈다. (기본은 꺼져 있고, 켜지 않으면 거의 비용이 없다)
 /// FPS, 프레임 시간, CPU/GPU 시간, 렌더링 통계(Batches, SetPass, Triangles), 프레임당 GC 할당량을 보여 주고,
-/// 프레임이 크게 튀면(100ms 이상) Console에 경고를 남겨 어떤 순간에 끊기는지 알 수 있게 한다.
+/// 프레임이 튀면(40ms 이상) Console에 로그를 남겨 어떤 순간에 끊기는지 알 수 있게 한다.
 /// Play 시작 시 자동으로 생성되므로 씬에 따로 배치할 필요가 없다.
 /// </summary>
 public class PerfOverlay : MonoBehaviour
 {
-    private const float SpikeThresholdMs = 100f;
+    private const float SpikeThresholdMs = 40f;          // 25 FPS 아래로 떨어지는 프레임
+    private const float LoadingGraceSeconds = 1.5f;        // 시작/재시작 직후로 보는 시간
     private const float WindowSeconds = 1f;
 
     private ProfilerRecorder _batches;
@@ -82,8 +83,19 @@ public class PerfOverlay : MonoBehaviour
 
         if (frameMs >= SpikeThresholdMs)
         {
-            Debug.LogWarning($"[Perf] 프레임 튐: {frameMs:0}ms (프레임 {Time.frameCount}, 게임 시간 {Time.timeSinceLevelLoad:0.0}초, " +
-                             $"이 프레임 GC 할당 {(_gcAllocInFrame.Valid ? _gcAllocInFrame.LastValue : 0) / 1024}KB)");
+            long allocKb = (_gcAllocInFrame.Valid ? _gcAllocInFrame.LastValue : 0) / 1024;
+            string info = $"{frameMs:0}ms (프레임 {Time.frameCount}, 게임 시간 {Time.timeSinceLevelLoad:0.0}초, 이 프레임 GC 할당 {allocKb}KB)";
+
+            if (Time.timeSinceLevelLoad < LoadingGraceSeconds)
+            {
+                // 씬을 불러오는 시작/재시작 직후의 지연은 정상이므로 일반 로그로만 남긴다.
+                Debug.Log($"[Perf] 시작/재시작 직후 지연: {info}");
+            }
+            else
+            {
+                // 게임 중에 생긴 끊김. 이것이 체감 렉의 원인이다.
+                Debug.LogWarning($"[Perf] 게임 중 끊김: {info}");
+            }
         }
 
         if (_windowTime >= WindowSeconds)
