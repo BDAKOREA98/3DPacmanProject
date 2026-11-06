@@ -189,8 +189,9 @@ public class PlayerMove : MonoBehaviour
         {
             RaycastHit hit = _hits[i];
 
-            // 자기 자신 제외
-            if (hit.collider == _boxCollider)
+            // 자기 자신 제외. Rigidbody가 있는 물체(적 등)는 벽이 아니므로 이동/회전을 막지 않는다.
+            // (적이 벽으로 취급되면 플레이어가 적에게 닿기 전에 멈춰 버려 접촉 판정이 일어나지 않는다.)
+            if (hit.collider == _boxCollider || hit.rigidbody != null)
             {
                 continue;
             }
