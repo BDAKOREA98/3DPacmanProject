@@ -24,6 +24,11 @@ public class GameClear : MonoBehaviour
         new GameObject(nameof(GameClear)).AddComponent<GameClear>();
     }
 
+    private void Start()
+    {
+        Debug.Log($"{nameof(GameClear)}: 준비됨. 남은 아이템 {Item.Remaining}개");
+    }
+
     // 이벤트 순서에 의존하지 않도록 매 프레임 남은 아이템 수를 직접 확인한다.
     private void Update()
     {
@@ -34,6 +39,11 @@ public class GameClear : MonoBehaviour
 
         if (Item.Remaining > 0)
         {
+            if (!_sawItems)
+            {
+                Debug.Log($"{nameof(GameClear)}: 아이템 {Item.Remaining}개 확인, 클리어 감시 시작");
+            }
+
             _sawItems = true;
             return;
         }
