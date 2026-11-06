@@ -14,7 +14,6 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private float frightenedDuration = 8f;
     [Range(0.1f, 1f)]
     [SerializeField] private float frightenedSpeedMultiplier = 0.5f;
-    [SerializeField] private Color frightenedColor = new Color(0.2f, 0.35f, 1f);
 
     [Header("3D 모델 (선택): 지정하면 큐브 대신 이 모델이 보인다")]
     [SerializeField] private GameObject modelPrefab;
@@ -27,13 +26,6 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("적")]
     [SerializeField] private Vector3 enemyScale = new Vector3(1f, 2f, 1f);
-    [SerializeField] private Color[] enemyColors =
-    {
-        new Color(1f, 0.2f, 0.2f),
-        new Color(1f, 0.55f, 0.8f),
-        new Color(0.2f, 0.9f, 1f),
-        new Color(1f, 0.6f, 0.15f),
-    };
 
     private void Start()
     {
@@ -71,18 +63,14 @@ public class EnemySpawner : MonoBehaviour
         enemyObject.transform.localScale = new Vector3(
             enemyScale.x / parentScale.x, enemyScale.y / parentScale.y, enemyScale.z / parentScale.z);
 
-        if (enemyColors.Length > 0)
-        {
-            enemyObject.GetComponent<Renderer>().material.color = enemyColors[index % enemyColors.Length];
-        }
-
         Enemy enemy = enemyObject.AddComponent<Enemy>();
-        enemy.SetFrightenedSettings(frightenedDuration, frightenedSpeedMultiplier, frightenedColor);
+        enemy.SetFrightenedSettings(frightenedDuration, frightenedSpeedMultiplier);
 
         if (modelPrefab != null)
         {
             enemy.AttachModel(modelPrefab, modelScale, modelOffset, modelRotation);
         }
+
         enemy.Initialize(maze, row, col, moveSpeed, enemyScale.y * 0.5f);
     }
 

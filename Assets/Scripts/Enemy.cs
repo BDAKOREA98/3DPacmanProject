@@ -38,8 +38,6 @@ public class Enemy : MonoBehaviour
     private BoxCollider _boxCollider;
     private Collider _playerCollider;
     private Renderer _renderer;
-    private Renderer[] _modelRenderers;                       // 3D 모델을 붙였을 때 색을 입힐 대상
-    private MaterialPropertyBlock _tintBlock;
 
     private MazeBuilder _maze;
     private float _moveSpeed;
@@ -48,10 +46,7 @@ public class Enemy : MonoBehaviour
     // 큰 아이템을 먹은 동안(겁먹은 상태)의 설정
     private float _frightenedDuration = 8f;
     private float _frightenedSpeedMultiplier = 0.5f;
-    private Color _frightenedColor = new Color(0.2f, 0.35f, 1f);
-    private Color _normalColor = Color.white;
     private float _frightenedUntil;
-    private bool _showingFrightened;
 
     private int _startRow;          // 처음 생성된 칸 (초기 위치)
     private int _startCol;
@@ -68,9 +63,6 @@ public class Enemy : MonoBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _boxCollider = GetComponent<BoxCollider>();
         _renderer = GetComponent<Renderer>();
-
-        // Unity 객체는 필드 초기화 대신 Awake에서 만든다. (필드 초기화 시점에는 Unity 객체가 안전하게 만들어지지 않을 수 있다)
-        _tintBlock = new MaterialPropertyBlock();
 
         // 플레이어와 같은 물리 설정: 충돌해도 회전하지 않고, 마찰이 없고, 보간 사용
         _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
@@ -111,12 +103,11 @@ public class Enemy : MonoBehaviour
         AllColliders.Remove(_boxCollider);
     }
 
-    /// <summary>큰 아이템을 먹었을 때의 느려짐 시간/배율/색을 설정한다. (Initialize 전에 호출)</summary>
-    public void SetFrightenedSettings(float duration, float speedMultiplier, Color color)
+    /// <summary>큰 아이템을 먹었을 때의 느려짐 시간/배율을 설정한다. (Initialize 전에 호출)</summary>
+    public void SetFrightenedSettings(float duration, float speedMultiplier)
     {
         _frightenedDuration = duration;
         _frightenedSpeedMultiplier = speedMultiplier;
-        _frightenedColor = color;
     }
 
     /// <summary>
@@ -126,7 +117,7 @@ public class Enemy : MonoBehaviour
     /// </summary>
     public void AttachModel(GameObject prefab, Vector3 worldScale, Vector3 worldOffset, Vector3 eulerRotation)
     {
-        _modelRenderers = ModelAttach.Attach(transform, prefab, worldScale, worldOffset, eulerRotation);
+        ModelAttach.Attach(transform, prefab, worldScale, worldOffset, eulerRotation);
 
         if (_renderer != null)
         {
@@ -155,11 +146,6 @@ public class Enemy : MonoBehaviour
             Physics.IgnoreCollision(_boxCollider, _playerCollider);
         }
 
-        if (_renderer != null && _modelRenderers == null)
-        {
-            _normalColor = _renderer.material.color;
-        }
-
         _startRow = row;
         _startCol = col;
 
@@ -177,8 +163,6 @@ public class Enemy : MonoBehaviour
         {
             return;
         }
-
-        UpdateFrightenedColor();
 
         if (CheckPlayerContact())
         {
@@ -247,7 +231,6 @@ public class Enemy : MonoBehaviour
     private void ReturnToStart()
     {
         _frightenedUntil = 0f;     // 초기 위치로 돌아가면 다시 정상 상태
-        UpdateFrightenedColor();
 
         _rigidbody.linearVelocity = Vector3.zero;
 
@@ -257,42 +240,6 @@ public class Enemy : MonoBehaviour
 
         _direction = Vector2Int.zero;
         ChooseNextTarget();
-    }
-
-    // 겁먹은 상태에서는 색을 바꿔 알아볼 수 있게 한다.
-    private void UpdateFrightenedColor()
-    {
-        bool frightened = IsFrightened;
-        if (frightened == _showingFrightened)
-        {
-            return;
-        }
-
-        _showingFrightened = frightened;
-
-        // 3D 모델이 있으면 Material을 복제하지 않고 색만 덧입힌다(PropertyBlock). 원래 상태로 돌아가면 해제.
-        if (_modelRenderers != null)
-        {
-            _tintBlock ??= new MaterialPropertyBlock();
-            _tintBlock.Clear();
-            if (frightened)
-            {
-                _tintBlock.SetColor("_BaseColor", _frightenedColor);
-                _tintBlock.SetColor("_Color", _frightenedColor);
-            }
-
-            foreach (Renderer modelRenderer in _modelRenderers)
-            {
-                modelRenderer.SetPropertyBlock(frightened ? _tintBlock : null);
-            }
-
-            return;
-        }
-
-        if (_renderer != null)
-        {
-            _renderer.material.color = frightened ? _frightenedColor : _normalColor;
-        }
     }
 
     // 에디터에서 Play 모드 진입 시(도메인 리로드를 끈 경우에도) 정적 값을 초기화
