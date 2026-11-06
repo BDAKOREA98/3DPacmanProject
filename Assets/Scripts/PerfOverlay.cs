@@ -31,6 +31,7 @@ public class PerfOverlay : MonoBehaviour
     private long _gcBytesWindow;
     private long _shownGcBytes;
     private GUIStyle _style;
+    private string _text = "";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Create()
@@ -96,7 +97,38 @@ public class PerfOverlay : MonoBehaviour
             _windowFrames = 0;
             _worstMs = 0f;
             _gcBytesWindow = 0;
+
+            // 진단 화면 자체가 쓰레기(GC)를 만들지 않도록 글자는 1초에 한 번만 만들고, 화면에 보일 때만 만든다.
+            if (_visible)
+            {
+                _text = BuildText();
+            }
         }
+    }
+
+    private string BuildText()
+    {
+        // CPU/GPU 중 어느 쪽이 병목인지 확인 (Player Settings의 Frame Timing Stats가 켜져 있어야 값이 나온다)
+        FrameTimingManager.CaptureFrameTimings();
+        uint count = FrameTimingManager.GetLatestTimings(1, _timings);
+        string cpuGpu = "CPU/GPU: (Frame Timing 사용 불가)";
+        if (count > 0 && (_timings[0].gpuFrameTime > 0 || _timings[0].cpuMainThreadFrameTime > 0))
+        {
+            cpuGpu = $"CPU(Main) {_timings[0].cpuMainThreadFrameTime:0.0}ms  " +
+                     $"CPU(Render) {_timings[0].cpuRenderThreadFrameTime:0.0}ms  GPU {_timings[0].gpuFrameTime:0.0}ms";
+        }
+
+        string mainThread = _mainThread.Valid
+            ? $"Main Thread {_mainThread.LastValue / 1000000f:0.0}ms"
+            : "Main Thread: -";
+
+        return
+            $"<b>FPS {_shownFps:0}</b>   평균 {_shownAvgMs:0.0}ms   최악 {_shownWorstMs:0.0}ms\n" +
+            $"{mainThread}\n" +
+            $"{cpuGpu}\n" +
+            $"Batches {(_batches.Valid ? _batches.LastValue : 0)}   SetPass {(_setPass.Valid ? _setPass.LastValue : 0)}   " +
+            $"Triangles {(_triangles.Valid ? _triangles.LastValue : 0) / 1000}K\n" +
+            $"GC 할당 {_shownGcBytes / 1024}KB/초   (F3: 끄기)";
     }
 
     private void OnGUI()
@@ -112,28 +144,6 @@ public class PerfOverlay : MonoBehaviour
             _style.normal.textColor = Color.white;
         }
 
-        // CPU/GPU 중 어느 쪽이 병목인지 확인 (Player Settings의 Frame Timing Stats가 켜져 있어야 값이 나온다)
-        FrameTimingManager.CaptureFrameTimings();
-        uint count = FrameTimingManager.GetLatestTimings(1, _timings);
-        string cpuGpu = "CPU/GPU: (Frame Timing 사용 불가)";
-        if (count > 0 && (_timings[0].gpuFrameTime > 0 || _timings[0].cpuMainThreadFrameTime > 0))
-        {
-            cpuGpu = $"CPU(Main) {_timings[0].cpuMainThreadFrameTime:0.0}ms  " +
-                     $"CPU(Render) {_timings[0].cpuRenderThreadFrameTime:0.0}ms  GPU {_timings[0].gpuFrameTime:0.0}ms";
-        }
-
-        string mainThread = _mainThread.Valid
-            ? $"Main Thread {_mainThread.LastValue / 1000000f:0.0}ms"
-            : "Main Thread: -";
-
-        string text =
-            $"<b>FPS {_shownFps:0}</b>   평균 {_shownAvgMs:0.0}ms   최악 {_shownWorstMs:0.0}ms\n" +
-            $"{mainThread}\n" +
-            $"{cpuGpu}\n" +
-            $"Batches {(_batches.Valid ? _batches.LastValue : 0)}   SetPass {(_setPass.Valid ? _setPass.LastValue : 0)}   " +
-            $"Triangles {(_triangles.Valid ? _triangles.LastValue : 0) / 1000}K\n" +
-            $"GC 할당 {_shownGcBytes / 1024}KB/초   (F3: 끄기)";
-
-        GUI.Label(new Rect(20f, 140f, 900f, 200f), text, _style);
+        GUI.Label(new Rect(20f, 140f, 900f, 200f), _text, _style);
     }
 }
