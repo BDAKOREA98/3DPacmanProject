@@ -24,6 +24,27 @@ public class PlayerMove : MonoBehaviour
 
         // 카메라가 따라갈 때 물리 갱신 주기 때문에 떨리지 않도록 보간 사용
         _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+
+        RemoveFriction();
+    }
+
+    // 벽에 붙었을 때 마찰 때문에 움직이지 않는 문제 방지: 마찰 0 (상대 마찰과 Minimum으로 결합)
+    private void RemoveFriction()
+    {
+        Collider playerCollider = GetComponent<Collider>();
+        if (playerCollider == null)
+        {
+            return;
+        }
+
+        playerCollider.material = new PhysicsMaterial("NoFriction")
+        {
+            dynamicFriction = 0f,
+            staticFriction = 0f,
+            bounciness = 0f,
+            frictionCombine = PhysicsMaterialCombine.Minimum,
+            bounceCombine = PhysicsMaterialCombine.Minimum
+        };
     }
 
     private void Update()
