@@ -118,7 +118,7 @@ public class Enemy : MonoBehaviour
 
     /// <summary>
     /// 기본 큐브 대신 3D 모델을 보여 준다. 큐브는 충돌/물리용으로 남기고 화면에서만 숨긴다.
-    /// 크기와 위치(오프셋)는 모두 월드 기준 값이다. (Initialize 전에 호출)
+    /// 크기(worldScale)는 프리팹 원래 크기에 곱하는 배율, 위치(오프셋)는 월드 단위 값이다. (Initialize 전에 호출)
     /// </summary>
     public void AttachModel(GameObject prefab, Vector3 worldScale, Vector3 worldOffset, float yaw)
     {
@@ -138,8 +138,12 @@ public class Enemy : MonoBehaviour
 
         // 적 큐브의 스케일(1,2,1)이 모델을 찌그러뜨리지 않도록 상쇄해서 월드 기준 크기로 맞춘다.
         Vector3 parentScale = transform.lossyScale;
+        // worldScale은 프리팹 원래 크기에 곱하는 배율이다. (1이면 에셋 크기 그대로, 2면 두 배)
+        Vector3 baseScale = model.transform.localScale;
         model.transform.localScale = new Vector3(
-            worldScale.x / parentScale.x, worldScale.y / parentScale.y, worldScale.z / parentScale.z);
+            baseScale.x * worldScale.x / parentScale.x,
+            baseScale.y * worldScale.y / parentScale.y,
+            baseScale.z * worldScale.z / parentScale.z);
         model.transform.localPosition = new Vector3(
             worldOffset.x / parentScale.x, worldOffset.y / parentScale.y, worldOffset.z / parentScale.z);
         model.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);

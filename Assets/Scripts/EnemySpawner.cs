@@ -18,6 +18,7 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("3D 모델 (선택): 지정하면 큐브 대신 이 모델이 보인다")]
     [SerializeField] private GameObject modelPrefab;
+    [Tooltip("모델(Mesh)만 키우는 배율. 1이면 에셋 크기 그대로. 충돌 크기(Enemy Scale)는 그대로다.")]
     [SerializeField] private Vector3 modelScale = Vector3.one;
     [Tooltip("적 중심(큐브 중앙) 기준 모델 위치(월드 단위). 모델의 발 위치가 피벗이면 (0, -1, 0).")]
     [SerializeField] private Vector3 modelOffset = new Vector3(0f, -1f, 0f);
