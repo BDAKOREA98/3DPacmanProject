@@ -1,51 +1,51 @@
 using UnityEngine;
 
 /// <summary>
-/// 플레이어의 뒤쪽 일정 거리에서 따라가며 항상 플레이어 방향을 바라보는 카메라.
-/// Offset은 플레이어 기준 로컬 좌표이므로 플레이어가 회전하면 카메라도 함께 돌아간다.
+/// 플레이어의 자식으로 붙은 카메라가 플레이어 회전 시 부드럽게 따라 돌도록 한다.
+/// 자식 카메라는 부모 회전을 그대로 받아 즉시 돌아가므로, 매 프레임 부모가 만든 포즈를 버리고
+/// 직접 보관한 위치/회전을 Lerp로 목표 포즈에 접근시켜 적용한다.
+/// 시작 시 카메라의 배치(위치/각도)를 플레이어 기준으로 기억해 그대로 유지한다.
 /// </summary>
 public class CameraMove : MonoBehaviour
 {
-    [SerializeField] private Transform target;
     [SerializeField] private float followSpeed = 5f;
     [SerializeField] private float rotateSpeed = 5f;
-    [SerializeField] private bool useInitialOffset = false;
 
-    // 플레이어 기준 로컬 Offset (x: 오른쪽, y: 위, z: 앞). 뒤쪽이므로 z는 음수.
-    [SerializeField] private Vector3 offset = new Vector3(0f, 4f, -6f);
+    private Transform _target;
+    private Vector3 _offset;            // 플레이어 기준 로컬 Offset (스케일 제외)
+    private Quaternion _rotationOffset; // 플레이어 기준 로컬 회전
 
-    // 플레이어 위치에서 이만큼 위쪽을 바라본다.
-    [SerializeField] private float lookHeight = 1f;
+    private Vector3 _currentPosition;
+    private Quaternion _currentRotation;
 
     private void Start()
     {
-        if (target == null)
+        _target = transform.parent;
+
+        if (_target == null)
         {
-            Debug.LogWarning($"{nameof(CameraMove)}: target이 지정되지 않았습니다.", this);
+            Debug.LogWarning($"{nameof(CameraMove)}: 카메라가 플레이어의 자식이 아닙니다.", this);
+            enabled = false;
             return;
         }
 
-        // 시작 시 카메라의 현재 위치를 플레이어 기준 로컬 Offset으로 변환 (스케일은 무시)
-        if (useInitialOffset)
-        {
-            offset = Quaternion.Inverse(target.rotation) * (transform.position - target.position);
-        }
+        _offset = Quaternion.Inverse(_target.rotation) * (transform.position - _target.position);
+        _rotationOffset = Quaternion.Inverse(_target.rotation) * transform.rotation;
+
+        _currentPosition = transform.position;
+        _currentRotation = transform.rotation;
     }
 
     private void LateUpdate()
     {
-        if (target == null)
-        {
-            return;
-        }
+        Vector3 desiredPosition = _target.position + _target.rotation * _offset;
+        Quaternion desiredRotation = _target.rotation * _rotationOffset;
 
-        Vector3 desiredPosition = target.position + target.rotation * offset;
-        transform.position = Vector3.Lerp(transform.position, desiredPosition,
+        _currentPosition = Vector3.Lerp(_currentPosition, desiredPosition,
             Mathf.Clamp01(followSpeed * Time.deltaTime));
-
-        Vector3 lookPoint = target.position + Vector3.up * lookHeight;
-        Quaternion desiredRotation = Quaternion.LookRotation(lookPoint - transform.position);
-        transform.rotation = Quaternion.Slerp(transform.rotation, desiredRotation,
+        _currentRotation = Quaternion.Slerp(_currentRotation, desiredRotation,
             Mathf.Clamp01(rotateSpeed * Time.deltaTime));
+
+        transform.SetPositionAndRotation(_currentPosition, _currentRotation);
     }
 }
