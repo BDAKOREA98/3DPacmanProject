@@ -7,7 +7,7 @@ using UnityEngine.UI;
 /// </summary>
 public class GameClear : MonoBehaviour
 {
-    private bool _collectedAny;
+    private bool _sawItems;
     private bool _cleared;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -24,36 +24,36 @@ public class GameClear : MonoBehaviour
         new GameObject(nameof(GameClear)).AddComponent<GameClear>();
     }
 
-    private void OnEnable()
+    // 이벤트 순서에 의존하지 않도록 매 프레임 남은 아이템 수를 직접 확인한다.
+    private void Update()
     {
-        Item.Collected += OnItemCollected;
-        Item.RemainingChanged += OnRemainingChanged;
-    }
-
-    private void OnDisable()
-    {
-        Item.Collected -= OnItemCollected;
-        Item.RemainingChanged -= OnRemainingChanged;
-    }
-
-    private void OnItemCollected(int value)
-    {
-        _collectedAny = true;
-    }
-
-    private void OnRemainingChanged(int remaining)
-    {
-        // 실제로 아이템을 먹어서 0이 된 경우에만 클리어 (시작 시 아직 아이템이 없는 상태는 제외)
-        if (_cleared || !_collectedAny || remaining > 0)
+        if (_cleared)
         {
             return;
         }
 
-        _cleared = true;
-        ShowClear();
+        if (Item.Remaining > 0)
+        {
+            _sawItems = true;
+            return;
+        }
 
-        // 게임 종료: 플레이어, 적 등 모든 물리/이동을 멈춘다.
+        // 아이템이 한 번이라도 있었는데 모두 사라졌다면 클리어
+        if (_sawItems)
+        {
+            Clear();
+        }
+    }
+
+    private void Clear()
+    {
+        _cleared = true;
+
+        // 게임 종료: 플레이어, 적 등 모든 물리/이동을 멈춘다. (UI 생성에 문제가 있어도 게임은 멈춘다)
         Time.timeScale = 0f;
+        Debug.Log($"{nameof(GameClear)}: 모든 아이템을 먹었습니다. Score = {Item.Score}");
+
+        ShowClear();
     }
 
     private void OnDestroy()
