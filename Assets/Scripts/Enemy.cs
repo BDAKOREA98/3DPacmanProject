@@ -38,6 +38,8 @@ public class Enemy : MonoBehaviour
     private BoxCollider _boxCollider;
     private Collider _playerCollider;
     private Renderer _renderer;
+    private Renderer[] _modelRenderers;                       // 3D 모델을 붙였을 때 색을 입힐 대상
+    private readonly MaterialPropertyBlock _tintBlock = new MaterialPropertyBlock();
 
     private MazeBuilder _maze;
     private float _moveSpeed;
@@ -114,6 +116,42 @@ public class Enemy : MonoBehaviour
         _frightenedColor = color;
     }
 
+    /// <summary>
+    /// 기본 큐브 대신 3D 모델을 보여 준다. 큐브는 충돌/물리용으로 남기고 화면에서만 숨긴다.
+    /// 크기와 위치(오프셋)는 모두 월드 기준 값이다. (Initialize 전에 호출)
+    /// </summary>
+    public void AttachModel(GameObject prefab, Vector3 worldScale, Vector3 worldOffset, float yaw)
+    {
+        GameObject model = Instantiate(prefab, transform);
+        model.name = "Model";
+
+        // 모델에 딸린 Collider/Rigidbody는 적의 충돌 판정과 섞이지 않도록 제거한다.
+        foreach (Collider modelCollider in model.GetComponentsInChildren<Collider>())
+        {
+            Destroy(modelCollider);
+        }
+
+        foreach (Rigidbody modelBody in model.GetComponentsInChildren<Rigidbody>())
+        {
+            Destroy(modelBody);
+        }
+
+        // 적 큐브의 스케일(1,2,1)이 모델을 찌그러뜨리지 않도록 상쇄해서 월드 기준 크기로 맞춘다.
+        Vector3 parentScale = transform.lossyScale;
+        model.transform.localScale = new Vector3(
+            worldScale.x / parentScale.x, worldScale.y / parentScale.y, worldScale.z / parentScale.z);
+        model.transform.localPosition = new Vector3(
+            worldOffset.x / parentScale.x, worldOffset.y / parentScale.y, worldOffset.z / parentScale.z);
+        model.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+
+        _modelRenderers = model.GetComponentsInChildren<Renderer>();
+
+        if (_renderer != null)
+        {
+            _renderer.enabled = false;
+        }
+    }
+
     private bool IsFrightened => Time.time < _frightenedUntil;
 
     // 큰 아이템을 먹으면(이미 겁먹은 상태여도) 시간을 새로 시작한다.
@@ -135,7 +173,7 @@ public class Enemy : MonoBehaviour
             Physics.IgnoreCollision(_boxCollider, _playerCollider);
         }
 
-        if (_renderer != null)
+        if (_renderer != null && _modelRenderers == null)
         {
             _normalColor = _renderer.material.color;
         }
@@ -243,13 +281,35 @@ public class Enemy : MonoBehaviour
     private void UpdateFrightenedColor()
     {
         bool frightened = IsFrightened;
-        if (_renderer == null || frightened == _showingFrightened)
+        if (frightened == _showingFrightened)
         {
             return;
         }
 
         _showingFrightened = frightened;
-        _renderer.material.color = frightened ? _frightenedColor : _normalColor;
+
+        // 3D 모델이 있으면 Material을 복제하지 않고 색만 덧입힌다(PropertyBlock). 원래 상태로 돌아가면 해제.
+        if (_modelRenderers != null)
+        {
+            _tintBlock.Clear();
+            if (frightened)
+            {
+                _tintBlock.SetColor("_BaseColor", _frightenedColor);
+                _tintBlock.SetColor("_Color", _frightenedColor);
+            }
+
+            foreach (Renderer modelRenderer in _modelRenderers)
+            {
+                modelRenderer.SetPropertyBlock(frightened ? _tintBlock : null);
+            }
+
+            return;
+        }
+
+        if (_renderer != null)
+        {
+            _renderer.material.color = frightened ? _frightenedColor : _normalColor;
+        }
     }
 
     // 에디터에서 Play 모드 진입 시(도메인 리로드를 끈 경우에도) 정적 값을 초기화
