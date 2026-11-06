@@ -3,9 +3,11 @@ using UnityEngine;
 
 /// <summary>
 /// 플레이어처럼 자신의 정면으로 계속 전진하며, 교차로에서 무작위로 90도 방향을 바꾸는 적.
-/// MazeLayout 격자를 따라 칸 단위로 이동하므로 벽을 통과하지 않는다.
+/// 방향 결정은 MazeLayout 격자의 칸 중심에서 하고, 이동은 Rigidbody + BoxCast로 해서
+/// 플레이어와 같은 방식으로 벽에 막힌다(벽에 파고들거나 통과하지 않는다).
 /// 터널 행의 양 끝에서는 플레이어처럼 반대쪽으로 순간이동한다.
 /// </summary>
+[RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
 public class Enemy : MonoBehaviour
 {
     // (행 변화, 열 변화): 위(+Z), 아래(-Z), 왼쪽, 오른쪽
@@ -17,19 +19,65 @@ public class Enemy : MonoBehaviour
         new Vector2Int(0, 1),
     };
 
-    private const float ArriveThreshold = 0.001f;
+    // 모든 Enemy의 Collider. 서로 부딪혀 길이 막히지 않도록 충돌을 무시시키는 데 쓴다.
+    private static readonly List<Collider> AllColliders = new List<Collider>();
+
+    private const float SkinWidth = 0.02f;         // 벽과 유지할 여유 거리
+    private const float CheckDistance = 0.1f;      // 이동 거리에 더해 앞쪽을 미리 검사하는 거리
+    private const float MaxFloorNormalY = 0.5f;    // 법선 |y|가 이 값 이상이면 바닥/천장으로 보고 무시
+    private const float ArriveThreshold = 0.02f;
+    private const float StoppedDistance = 0.0001f;
 
     private readonly List<Vector2Int> _candidates = new List<Vector2Int>(4);
+    private readonly RaycastHit[] _hits = new RaycastHit[16];
+
+    private Rigidbody _rigidbody;
+    private BoxCollider _boxCollider;
 
     private MazeBuilder _maze;
     private float _moveSpeed;
     private float _centerHeight;
 
-    private int _row;               // 현재 칸의 행
-    private int _col;               // 현재 칸의 열
+    private int _row;               // 마지막으로 도착한 칸의 행
+    private int _col;               // 마지막으로 도착한 칸의 열
     private Vector2Int _direction;  // 현재 진행 방향 (행 변화, 열 변화)
+    private Vector3 _worldDirection;
     private int _targetRow;
     private int _targetCol;
+
+    private void Awake()
+    {
+        _rigidbody = GetComponent<Rigidbody>();
+        _boxCollider = GetComponent<BoxCollider>();
+
+        // 플레이어와 같은 물리 설정: 충돌해도 회전하지 않고, 마찰이 없고, 보간 사용
+        _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+        _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+
+        _boxCollider.isTrigger = false;
+        _boxCollider.material = new PhysicsMaterial("NoFriction")
+        {
+            dynamicFriction = 0f,
+            staticFriction = 0f,
+            bounciness = 0f,
+            frictionCombine = PhysicsMaterialCombine.Minimum,
+            bounceCombine = PhysicsMaterialCombine.Minimum
+        };
+
+        // 적끼리는 서로 막지 않는다.
+        AllColliders.RemoveAll(other => other == null);
+        foreach (Collider other in AllColliders)
+        {
+            Physics.IgnoreCollision(_boxCollider, other);
+        }
+
+        AllColliders.Add(_boxCollider);
+    }
+
+    private void OnDestroy()
+    {
+        AllColliders.Remove(_boxCollider);
+    }
 
     public void Initialize(MazeBuilder maze, int row, int col, float moveSpeed, float centerHeight)
     {
@@ -37,15 +85,22 @@ public class Enemy : MonoBehaviour
         _moveSpeed = moveSpeed;
         _centerHeight = centerHeight;
 
+        // 적이 플레이어를 막지 않도록 서로의 충돌은 무시한다.
+        PlayerMove player = FindFirstObjectByType<PlayerMove>();
+        if (player != null && player.TryGetComponent(out Collider playerCollider))
+        {
+            Physics.IgnoreCollision(_boxCollider, playerCollider);
+        }
+
         _row = row;
         _col = col;
-        transform.position = CellToWorld(_row, _col);
+        Teleport(CellToWorld(_row, _col));
 
         _direction = Vector2Int.zero;
         ChooseNextTarget();
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
         if (_maze == null)
         {
@@ -53,17 +108,52 @@ public class Enemy : MonoBehaviour
         }
 
         Vector3 target = CellToWorld(_targetRow, _targetCol);
-        transform.position = Vector3.MoveTowards(transform.position, target, _moveSpeed * Time.deltaTime);
+        Vector3 toTarget = target - _rigidbody.position;
+        toTarget.y = 0f;
 
-        if ((transform.position - target).sqrMagnitude <= ArriveThreshold * ArriveThreshold)
+        // 목표 칸 중심까지 남은 거리 (진행 방향 기준)
+        float remaining = Vector3.Dot(toTarget, _worldDirection);
+        if (remaining <= ArriveThreshold)
         {
-            _row = _targetRow;
-            _col = _targetCol;
-            transform.position = target;
-
-            ApplyTunnelWarp();
-            ChooseNextTarget();
+            Arrive(target);
+            return;
         }
+
+        float dt = Time.fixedDeltaTime;
+        float move = Mathf.Min(_moveSpeed * dt, remaining);
+
+        // 이번 이동 거리 안에 정면 벽이 있으면 벽 앞 여유 거리까지만 이동 (플레이어와 같은 방식)
+        bool blocked = false;
+        if (TryGetWallDistance(_worldDirection, move + CheckDistance + SkinWidth, out float wallDistance))
+        {
+            float freeDistance = Mathf.Max(0f, wallDistance - SkinWidth - SkinWidth);
+            if (freeDistance < move)
+            {
+                move = freeDistance;
+                blocked = true;
+            }
+        }
+
+        Vector3 velocity = _worldDirection * (move / dt);
+        velocity.y = _rigidbody.linearVelocity.y;
+        _rigidbody.linearVelocity = velocity;
+
+        // 예상치 못한 벽에 막혀 멈췄다면 마지막 칸으로 되돌아가 다른 길을 고른다.
+        if (blocked && move <= StoppedDistance)
+        {
+            ReverseToLastCell();
+        }
+    }
+
+    private void Arrive(Vector3 target)
+    {
+        _row = _targetRow;
+        _col = _targetCol;
+
+        Teleport(new Vector3(target.x, _rigidbody.position.y, target.z));
+
+        ApplyTunnelWarp();
+        ChooseNextTarget();
     }
 
     // 터널 행의 양 끝 칸에 도착하면 반대쪽 끝에서 한 칸 안쪽으로 이동 (플레이어의 TunnelWarp와 같은 규칙)
@@ -89,7 +179,7 @@ public class Enemy : MonoBehaviour
             return;
         }
 
-        transform.position = CellToWorld(_row, _col);
+        Teleport(CellToWorld(_row, _col));
     }
 
     private void ChooseNextTarget()
@@ -126,13 +216,35 @@ public class Enemy : MonoBehaviour
             }
         }
 
-        _direction = _candidates[Random.Range(0, _candidates.Count)];
+        SetDirection(_candidates[Random.Range(0, _candidates.Count)]);
         _targetRow = _row + _direction.x;
         _targetCol = _col + _direction.y;
+    }
 
-        // 플레이어처럼 진행 방향을 바라본다 (90도씩 즉시 회전)
-        Vector3 worldDirection = _maze.transform.TransformDirection(new Vector3(_direction.y, 0f, -_direction.x));
-        transform.rotation = Quaternion.LookRotation(worldDirection, Vector3.up);
+    private void ReverseToLastCell()
+    {
+        SetDirection(-_direction);
+        _targetRow = _row;
+        _targetCol = _col;
+    }
+
+    // 진행 방향을 정하고, 플레이어처럼 그 방향을 바라본다 (90도씩 즉시 회전)
+    private void SetDirection(Vector2Int direction)
+    {
+        _direction = direction;
+        _worldDirection = _maze.transform.TransformDirection(new Vector3(direction.y, 0f, -direction.x)).normalized;
+
+        Quaternion rotation = Quaternion.LookRotation(_worldDirection, Vector3.up);
+        _rigidbody.rotation = rotation;
+        transform.rotation = rotation;
+    }
+
+    private void Teleport(Vector3 position)
+    {
+        // transform을 직접 옮겨 보간(Interpolate)이 가로지르지 않게 한다.
+        _rigidbody.position = position;
+        transform.position = position;
+        Physics.SyncTransforms();
     }
 
     private static bool CanEnter(int row, int col, bool alreadyInsideHouse)
@@ -156,5 +268,49 @@ public class Enemy : MonoBehaviour
         Vector3 world = _maze.transform.TransformPoint(new Vector3(x, 0f, z));
         world.y = _maze.transform.position.y + _centerHeight;
         return world;
+    }
+
+    /// <summary>
+    /// 이 Collider와 같은 크기의 상자를 direction으로 쏴서 가장 가까운 벽까지의 거리를 구한다.
+    /// 상자는 SkinWidth만큼 작게 만들어 자기 자신/바닥과 겹쳐 오탐하지 않게 한다.
+    /// 플레이어나 다른 적(Rigidbody가 있는 물체), Trigger(아이템), 바닥/천장은 벽으로 보지 않는다.
+    /// </summary>
+    private bool TryGetWallDistance(Vector3 direction, float maxDistance, out float distance)
+    {
+        Vector3 scale = transform.lossyScale;
+        Vector3 halfExtents = Vector3.Scale(_boxCollider.size * 0.5f, new Vector3(
+            Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+        halfExtents = Vector3.Max(halfExtents - Vector3.one * SkinWidth, Vector3.one * 0.001f);
+
+        Vector3 center = transform.TransformPoint(_boxCollider.center);
+
+        int count = Physics.BoxCastNonAlloc(center, halfExtents, direction, _hits, _rigidbody.rotation,
+            maxDistance, ~0, QueryTriggerInteraction.Ignore);
+
+        distance = float.MaxValue;
+        bool found = false;
+
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit hit = _hits[i];
+
+            if (hit.collider == _boxCollider || hit.rigidbody != null)
+            {
+                continue;
+            }
+
+            if (Mathf.Abs(hit.normal.y) >= MaxFloorNormalY)
+            {
+                continue;
+            }
+
+            if (hit.distance < distance)
+            {
+                distance = hit.distance;
+                found = true;
+            }
+        }
+
+        return found;
     }
 }

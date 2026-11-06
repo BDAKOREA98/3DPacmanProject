@@ -55,9 +55,6 @@ public class EnemySpawner : MonoBehaviour
         enemyObject.transform.localScale = new Vector3(
             enemyScale.x / parentScale.x, enemyScale.y / parentScale.y, enemyScale.z / parentScale.z);
 
-        // 플레이어를 막지 않도록 Trigger로 설정
-        enemyObject.GetComponent<Collider>().isTrigger = true;
-
         if (enemyColors.Length > 0)
         {
             enemyObject.GetComponent<Renderer>().material.color = enemyColors[index % enemyColors.Length];
