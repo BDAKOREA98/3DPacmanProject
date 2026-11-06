@@ -7,8 +7,9 @@ using UnityEngine;
 /// </summary>
 public class MazeBuilder : MonoBehaviour
 {
-    [SerializeField] private float cellSize = 1f;
-    [SerializeField] private float wallHeight = 1f;
+    // 플레이어(1, 2, 1)가 여유 있게 지나도록 통로 폭 2, 벽 높이 3
+    [SerializeField] private float cellSize = 2f;
+    [SerializeField] private float wallHeight = 3f;
 
     // 28열 x 31행, '#' = 벽(Cube), '.' = 길/빈 공간. 위쪽 행이 +Z 방향.
     private static readonly string[] Layout =
