@@ -123,38 +123,7 @@ public class Enemy : MonoBehaviour
     /// </summary>
     public void AttachModel(GameObject prefab, Vector3 worldScale, Vector3 worldOffset, Vector3 eulerRotation)
     {
-        // 적 큐브의 스케일(1,2,1)이 모델을 찌그러뜨리지 않도록, 스케일을 정확히 상쇄한 중간 오브젝트를 둔다.
-        // 이 오브젝트의 월드 스케일은 (1,1,1)이라서 그 아래의 모델은 어떻게 회전해도 늘어나지 않는다.
-        Vector3 parentScale = transform.lossyScale;
-
-        Transform modelRoot = new GameObject("ModelRoot").transform;
-        modelRoot.SetParent(transform, false);
-        modelRoot.localPosition = new Vector3(
-            worldOffset.x / parentScale.x, worldOffset.y / parentScale.y, worldOffset.z / parentScale.z);
-        modelRoot.localRotation = Quaternion.identity;
-        modelRoot.localScale = new Vector3(1f / parentScale.x, 1f / parentScale.y, 1f / parentScale.z);
-
-        GameObject model = Instantiate(prefab, modelRoot);
-        model.name = "Model";
-
-        // 모델에 딸린 Collider/Rigidbody는 적의 충돌 판정과 섞이지 않도록 제거한다.
-        foreach (Collider modelCollider in model.GetComponentsInChildren<Collider>())
-        {
-            Destroy(modelCollider);
-        }
-
-        foreach (Rigidbody modelBody in model.GetComponentsInChildren<Rigidbody>())
-        {
-            Destroy(modelBody);
-        }
-
-        // worldScale은 프리팹 원래 크기에 곱하는 배율이다. (1이면 에셋 크기 그대로, 2면 두 배)
-        Vector3 baseScale = model.transform.localScale;
-        model.transform.localPosition = Vector3.zero;
-        model.transform.localRotation = Quaternion.Euler(eulerRotation);
-        model.transform.localScale = Vector3.Scale(baseScale, worldScale);
-
-        _modelRenderers = model.GetComponentsInChildren<Renderer>();
+        _modelRenderers = ModelAttach.Attach(transform, prefab, worldScale, worldOffset, eulerRotation);
 
         if (_renderer != null)
         {
