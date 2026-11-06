@@ -1,16 +1,14 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 미로 가운데 유령집 안에서 Enemy를 일정 간격으로 하나씩 생성한다.
+/// 게임 시작 시 미로 가운데 유령집 안에서 Enemy를 한 번만 한꺼번에 생성한다.
 /// 생성된 Enemy는 플레이어처럼 전진하며 교차로에서 무작위로 방향을 바꾼다.
 /// 위치 기준은 씬의 MazeBuilder를 따른다.
 /// </summary>
 public class EnemySpawner : MonoBehaviour
 {
     [SerializeField] private int enemyCount = 4;
-    [SerializeField] private float spawnInterval = 2f;
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private Vector3 enemyScale = new Vector3(1f, 2f, 1f);
     [SerializeField] private Color[] enemyColors =
@@ -30,10 +28,11 @@ public class EnemySpawner : MonoBehaviour
             return;
         }
 
-        StartCoroutine(SpawnRoutine(maze));
+        // 게임 시작 시 한 번만 생성 (이후 다시 생성하지 않는다)
+        SpawnAll(maze);
     }
 
-    private IEnumerator SpawnRoutine(MazeBuilder maze)
+    private void SpawnAll(MazeBuilder maze)
     {
         List<Vector2Int> spawnCells = GetHouseCells();
         Shuffle(spawnCells);
@@ -42,11 +41,6 @@ public class EnemySpawner : MonoBehaviour
         {
             Vector2Int cell = spawnCells[i % spawnCells.Count];
             SpawnEnemy(maze, i, cell.x, cell.y);
-
-            if (i < enemyCount - 1)
-            {
-                yield return new WaitForSeconds(spawnInterval);
-            }
         }
     }
 
