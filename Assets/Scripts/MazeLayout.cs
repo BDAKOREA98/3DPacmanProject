@@ -46,6 +46,28 @@ public static class MazeLayout
         "############################",
     };
 
+    // 가운데 유령집 내부(몬스터 출발 지점). 행/열 번호는 모두 0부터.
+    public const int HouseTop = 13;
+    public const int HouseBottom = 15;
+    public const int HouseLeft = 11;
+    public const int HouseRight = 16;
+
     public static int RowCount => Rows.Length;
     public static int ColCount => Rows[0].Length;
+
+    public static bool IsWall(int row, int col)
+    {
+        // 배치도 밖은 벽으로 취급
+        if (row < 0 || row >= RowCount || col < 0 || col >= ColCount)
+        {
+            return true;
+        }
+
+        return Rows[row][col] == Wall;
+    }
+
+    public static bool IsGhostHouse(int row, int col)
+    {
+        return row >= HouseTop && row <= HouseBottom && col >= HouseLeft && col <= HouseRight;
+    }
 }
