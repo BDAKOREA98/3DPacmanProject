@@ -6,7 +6,9 @@ using UnityEngine.UI;
 /// <summary>
 /// 우측 상단(남은 아이템 수 아래)에 미로 전체가 보이는 미니맵을 표시한다.
 /// 이름에 "Minimap"이 들어간 카메라(없으면 새로 만든다)를 위에서 내려다보는 직교 카메라로 설정해
-/// RenderTexture에 그리고, 그 결과를 UI에 보여 준다.
+/// RenderTexture에 그리고, 그 결과를 UI(RawImage)에 보여 준다.
+/// 씬에 이름에 "Minimap"이 들어간 RawImage(예: 직접 만든 MinimapUI)가 있으면 새 UI를 만들지 않고 그것에 표시한다.
+/// 카메라의 Target Texture나 그 RawImage의 Texture에 RenderTexture 에셋이 지정돼 있으면 그것을 그대로 쓴다.
 /// 플레이어(노란 원)와 적(각자의 색 원)은 미니맵에만 보이는 표시로 나타낸다.
 /// Play 시작 시(그리고 씬을 다시 불러올 때마다) 자동으로 만들어지므로 씬에 따로 배치할 필요가 없다.
 /// </summary>
@@ -25,6 +27,7 @@ public class MinimapUI : MonoBehaviour
 
     private Camera _camera;
     private RenderTexture _renderTexture;
+    private bool _ownsTexture;           // 이 스크립트가 만든 RenderTexture인지 (에셋이면 해제하지 않는다)
     private Vector3 _mapCenter;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -51,12 +54,6 @@ public class MinimapUI : MonoBehaviour
         new GameObject(nameof(MinimapUI)).AddComponent<MinimapUI>();
     }
 
-    private void Awake()
-    {
-        _renderTexture = new RenderTexture(TextureSize, TextureSize, 16) { name = "MinimapRenderTexture" };
-        BuildUI();
-    }
-
     private void Start()
     {
         MazeBuilder maze = FindFirstObjectByType<MazeBuilder>();
@@ -71,7 +68,27 @@ public class MinimapUI : MonoBehaviour
 
         _mapCenter = maze.transform.position;
 
+        _camera = FindMinimapCamera();
+        if (_camera == null)
+        {
+            _camera = new GameObject("MinimapCamera").AddComponent<Camera>();
+        }
+
+        // 카메라 화면을 보여 줄 UI: 직접 만든 RawImage가 있으면 그것을, 없으면 새로 만든다.
+        RawImage existingImage = FindMinimapImage();
+        _renderTexture = ChooseRenderTexture(existingImage);
+
         SetUpCamera(maze);
+
+        if (existingImage != null)
+        {
+            existingImage.texture = _renderTexture;
+        }
+        else
+        {
+            BuildUI();
+        }
+
         HideMarkersFromMainCamera();
 
         AddMarker(player.transform, PlayerMarkerColor, 6f);
@@ -91,7 +108,7 @@ public class MinimapUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (_renderTexture != null)
+        if (_ownsTexture && _renderTexture != null)
         {
             _renderTexture.Release();
             Destroy(_renderTexture);
@@ -102,13 +119,6 @@ public class MinimapUI : MonoBehaviour
 
     private void SetUpCamera(MazeBuilder maze)
     {
-        _camera = FindMinimapCamera();
-
-        if (_camera == null)
-        {
-            _camera = new GameObject("MinimapCamera").AddComponent<Camera>();
-        }
-
         // 플레이어의 자식이면 플레이어의 회전/스케일(1,2,1)이 화면을 왜곡하므로 떼어 낸다.
         if (_camera.transform.parent != null)
         {
@@ -121,7 +131,10 @@ public class MinimapUI : MonoBehaviour
         float worldDepth = MazeLayout.RowCount * maze.CellSize * Mathf.Abs(scale.z);
 
         _camera.orthographic = true;
-        _camera.orthographicSize = Mathf.Max(worldWidth, worldDepth) * 0.5f * MapMargin;
+
+        // 화면 비율(가로/세로)이 정사각형이 아니어도 미로 전체가 들어오도록 크기를 정한다.
+        float aspect = (float)_renderTexture.width / _renderTexture.height;
+        _camera.orthographicSize = Mathf.Max(worldDepth * 0.5f, worldWidth * 0.5f / aspect) * MapMargin;
         _camera.clearFlags = CameraClearFlags.SolidColor;
         _camera.backgroundColor = new Color(0.03f, 0.03f, 0.08f, 1f);
         _camera.cullingMask = ~0;
@@ -136,6 +149,36 @@ public class MinimapUI : MonoBehaviour
         {
             listener.enabled = false;
         }
+    }
+
+    // 카메라에 이미 RenderTexture가 지정돼 있으면 그것을, 아니면 UI 이미지에 지정된 것을, 둘 다 없으면 새로 만든다.
+    private RenderTexture ChooseRenderTexture(RawImage existingImage)
+    {
+        if (_camera.targetTexture != null)
+        {
+            return _camera.targetTexture;
+        }
+
+        if (existingImage != null && existingImage.texture is RenderTexture assigned)
+        {
+            return assigned;
+        }
+
+        _ownsTexture = true;
+        return new RenderTexture(TextureSize, TextureSize, 16) { name = "MinimapRenderTexture" };
+    }
+
+    private static RawImage FindMinimapImage()
+    {
+        foreach (RawImage candidate in FindObjectsByType<RawImage>(FindObjectsSortMode.None))
+        {
+            if (candidate.name.Contains("Minimap"))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private static Camera FindMinimapCamera()
