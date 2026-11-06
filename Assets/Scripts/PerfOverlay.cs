@@ -128,7 +128,8 @@ public class PerfOverlay : MonoBehaviour
             $"{cpuGpu}\n" +
             $"Batches {(_batches.Valid ? _batches.LastValue : 0)}   SetPass {(_setPass.Valid ? _setPass.LastValue : 0)}   " +
             $"Triangles {(_triangles.Valid ? _triangles.LastValue : 0) / 1000}K\n" +
-            $"GC 할당 {_shownGcBytes / 1024}KB/초   (F3: 끄기)";
+            $"GC 할당 {_shownGcBytes / 1024}KB/초\n" +
+            $"TimeScale {Time.timeScale:0.00}   FixedDt {Time.fixedDeltaTime:0.000}   물리 {Physics.simulationMode}   (F3: 끄기)";
     }
 
     private void OnGUI()
