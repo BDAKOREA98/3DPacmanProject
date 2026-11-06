@@ -8,6 +8,9 @@ public static class MazeLayout
     public const char Item = 'o';
     public const char BigItem = 'P';
 
+    /// <summary>양 끝이 뚫려 있어 순간이동이 일어나는 터널 행 번호(0부터, 위에서 아래로).</summary>
+    public const int TunnelRow = 14;
+
     public static readonly string[] Rows =
     {
         "############################",

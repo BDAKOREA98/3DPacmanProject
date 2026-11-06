@@ -36,6 +36,22 @@ public class CameraMove : MonoBehaviour
         _currentRotation = transform.rotation;
     }
 
+    /// <summary>
+    /// 플레이어가 순간이동했을 때 카메라가 먼 거리를 날아가지 않고 즉시 목표 포즈로 이동하게 한다.
+    /// </summary>
+    public void SnapToTarget()
+    {
+        if (_target == null)
+        {
+            return;
+        }
+
+        _currentPosition = _target.position + _target.rotation * _offset;
+        _currentRotation = _target.rotation * _rotationOffset;
+
+        transform.SetPositionAndRotation(_currentPosition, _currentRotation);
+    }
+
     private void LateUpdate()
     {
         Vector3 desiredPosition = _target.position + _target.rotation * _offset;
