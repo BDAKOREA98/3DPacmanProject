@@ -37,10 +37,22 @@ public class Enemy : MonoBehaviour
     private Rigidbody _rigidbody;
     private BoxCollider _boxCollider;
     private Collider _playerCollider;
+    private Renderer _renderer;
 
     private MazeBuilder _maze;
     private float _moveSpeed;
     private float _centerHeight;
+
+    // 큰 아이템을 먹은 동안(겁먹은 상태)의 설정
+    private float _frightenedDuration = 8f;
+    private float _frightenedSpeedMultiplier = 0.5f;
+    private Color _frightenedColor = new Color(0.2f, 0.35f, 1f);
+    private Color _normalColor = Color.white;
+    private float _frightenedUntil;
+    private bool _showingFrightened;
+
+    private int _startRow;          // 처음 생성된 칸 (초기 위치)
+    private int _startCol;
 
     private int _row;               // 마지막으로 도착한 칸의 행
     private int _col;               // 마지막으로 도착한 칸의 열
@@ -53,6 +65,7 @@ public class Enemy : MonoBehaviour
     {
         _rigidbody = GetComponent<Rigidbody>();
         _boxCollider = GetComponent<BoxCollider>();
+        _renderer = GetComponent<Renderer>();
 
         // 플레이어와 같은 물리 설정: 충돌해도 회전하지 않고, 마찰이 없고, 보간 사용
         _rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
@@ -78,9 +91,35 @@ public class Enemy : MonoBehaviour
         AllColliders.Add(_boxCollider);
     }
 
+    private void OnEnable()
+    {
+        Item.BigItemCollected += OnBigItemCollected;
+    }
+
+    private void OnDisable()
+    {
+        Item.BigItemCollected -= OnBigItemCollected;
+    }
+
     private void OnDestroy()
     {
         AllColliders.Remove(_boxCollider);
+    }
+
+    /// <summary>큰 아이템을 먹었을 때의 느려짐 시간/배율/색을 설정한다. (Initialize 전에 호출)</summary>
+    public void SetFrightenedSettings(float duration, float speedMultiplier, Color color)
+    {
+        _frightenedDuration = duration;
+        _frightenedSpeedMultiplier = speedMultiplier;
+        _frightenedColor = color;
+    }
+
+    private bool IsFrightened => Time.time < _frightenedUntil;
+
+    // 큰 아이템을 먹으면(이미 겁먹은 상태여도) 시간을 새로 시작한다.
+    private void OnBigItemCollected()
+    {
+        _frightenedUntil = Time.time + _frightenedDuration;
     }
 
     public void Initialize(MazeBuilder maze, int row, int col, float moveSpeed, float centerHeight)
@@ -95,6 +134,14 @@ public class Enemy : MonoBehaviour
         {
             Physics.IgnoreCollision(_boxCollider, _playerCollider);
         }
+
+        if (_renderer != null)
+        {
+            _normalColor = _renderer.material.color;
+        }
+
+        _startRow = row;
+        _startCol = col;
 
         _row = row;
         _col = col;
@@ -111,7 +158,12 @@ public class Enemy : MonoBehaviour
             return;
         }
 
-        CheckPlayerContact();
+        UpdateFrightenedColor();
+
+        if (CheckPlayerContact())
+        {
+            return;
+        }
 
         Vector3 target = CellToWorld(_targetRow, _targetCol);
         Vector3 toTarget = target - _rigidbody.position;
@@ -126,7 +178,8 @@ public class Enemy : MonoBehaviour
         }
 
         float dt = Time.fixedDeltaTime;
-        float move = Mathf.Min(_moveSpeed * dt, remaining);
+        float speed = IsFrightened ? _moveSpeed * _frightenedSpeedMultiplier : _moveSpeed;
+        float move = Mathf.Min(speed * dt, remaining);
 
         // 이번 이동 거리 안에 정면 벽이 있으면 벽 앞 여유 거리까지만 이동 (플레이어와 같은 방식)
         bool blocked = false;
@@ -152,12 +205,51 @@ public class Enemy : MonoBehaviour
     }
 
     // 물리 충돌은 서로 무시하므로, Collider 영역이 겹치는지로 접촉을 판정한다.
-    private void CheckPlayerContact()
+    // 일반 상태에서 닿으면 플레이어가 잡히고, 겁먹은 상태에서 닿으면 이 적이 초기 위치로 돌아간다.
+    // 이번 물리 프레임의 이동을 건너뛰어야 하면 true를 반환한다.
+    private bool CheckPlayerContact()
     {
-        if (_playerCollider != null && _boxCollider.bounds.Intersects(_playerCollider.bounds))
+        if (_playerCollider == null || !_boxCollider.bounds.Intersects(_playerCollider.bounds))
         {
-            PlayerCaught?.Invoke();
+            return false;
         }
+
+        if (IsFrightened)
+        {
+            ReturnToStart();
+            return true;
+        }
+
+        PlayerCaught?.Invoke();
+        return false;
+    }
+
+    private void ReturnToStart()
+    {
+        _frightenedUntil = 0f;     // 초기 위치로 돌아가면 다시 정상 상태
+        UpdateFrightenedColor();
+
+        _rigidbody.linearVelocity = Vector3.zero;
+
+        _row = _startRow;
+        _col = _startCol;
+        Teleport(CellToWorld(_row, _col));
+
+        _direction = Vector2Int.zero;
+        ChooseNextTarget();
+    }
+
+    // 겁먹은 상태에서는 색을 바꿔 알아볼 수 있게 한다.
+    private void UpdateFrightenedColor()
+    {
+        bool frightened = IsFrightened;
+        if (_renderer == null || frightened == _showingFrightened)
+        {
+            return;
+        }
+
+        _showingFrightened = frightened;
+        _renderer.material.color = frightened ? _frightenedColor : _normalColor;
     }
 
     // 에디터에서 Play 모드 진입 시(도메인 리로드를 끈 경우에도) 정적 값을 초기화

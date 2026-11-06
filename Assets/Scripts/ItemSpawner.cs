@@ -63,7 +63,8 @@ public class ItemSpawner : MonoBehaviour
                 bool isBig = cell == MazeLayout.BigItem;
                 CreateItem($"Item_{row}_{col}", worldPosition,
                     isBig ? bigItemSize : itemSize,
-                    isBig ? bigItemScore : itemScore);
+                    isBig ? bigItemScore : itemScore,
+                    isBig);
             }
         }
     }
@@ -92,7 +93,7 @@ public class ItemSpawner : MonoBehaviour
         MarkSceneChanged();
     }
 
-    private void CreateItem(string itemName, Vector3 worldPosition, float size, int score)
+    private void CreateItem(string itemName, Vector3 worldPosition, float size, int score, bool isBig)
     {
         GameObject item = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         item.name = itemName;
@@ -110,7 +111,7 @@ public class ItemSpawner : MonoBehaviour
 
         item.GetComponent<Renderer>().material.color = itemColor;
 
-        item.AddComponent<Item>().Initialize(score);
+        item.AddComponent<Item>().Initialize(score, isBig);
     }
 
     private void MarkSceneChanged()

@@ -17,11 +17,15 @@ public class Item : MonoBehaviour
     /// <summary>아이템을 먹을 때마다 해당 아이템의 점수와 함께 호출된다.</summary>
     public static event Action<int> Collected;
 
+    /// <summary>큰 아이템(파워 아이템)을 먹을 때 호출된다.</summary>
+    public static event Action BigItemCollected;
+
     /// <summary>남은 아이템 수가 바뀔 때마다 새 개수와 함께 호출된다.</summary>
     public static event Action<int> RemainingChanged;
 
     // 에디터에서 Build Items로 미리 만든 아이템도 값이 저장되도록 직렬화한다.
     [SerializeField] private int value = 10;
+    [SerializeField] private bool isBig;
 
     /// <summary>점수를 0으로 되돌린다(게임 재시작 시).</summary>
     public static void ResetScore()
@@ -36,9 +40,10 @@ public class Item : MonoBehaviour
         Collected?.Invoke(value);
     }
 
-    public void Initialize(int itemValue)
+    public void Initialize(int itemValue, bool big)
     {
         value = itemValue;
+        isBig = big;
     }
 
     private void Awake()
@@ -67,6 +72,11 @@ public class Item : MonoBehaviour
 
         AddScore(value);
 
+        if (isBig)
+        {
+            BigItemCollected?.Invoke();
+        }
+
         Destroy(gameObject);
     }
 
@@ -77,6 +87,7 @@ public class Item : MonoBehaviour
         Score = 0;
         Remaining = 0;
         Collected = null;
+        BigItemCollected = null;
         RemainingChanged = null;
     }
 }

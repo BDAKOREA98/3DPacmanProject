@@ -10,6 +10,13 @@ public class EnemySpawner : MonoBehaviour
 {
     [SerializeField] private int enemyCount = 4;
     [SerializeField] private float moveSpeed = 4f;
+    [Header("큰 아이템을 먹었을 때")]
+    [SerializeField] private float frightenedDuration = 8f;
+    [Range(0.1f, 1f)]
+    [SerializeField] private float frightenedSpeedMultiplier = 0.5f;
+    [SerializeField] private Color frightenedColor = new Color(0.2f, 0.35f, 1f);
+
+    [Header("적")]
     [SerializeField] private Vector3 enemyScale = new Vector3(1f, 2f, 1f);
     [SerializeField] private Color[] enemyColors =
     {
@@ -60,7 +67,9 @@ public class EnemySpawner : MonoBehaviour
             enemyObject.GetComponent<Renderer>().material.color = enemyColors[index % enemyColors.Length];
         }
 
-        enemyObject.AddComponent<Enemy>().Initialize(maze, row, col, moveSpeed, enemyScale.y * 0.5f);
+        Enemy enemy = enemyObject.AddComponent<Enemy>();
+        enemy.SetFrightenedSettings(frightenedDuration, frightenedSpeedMultiplier, frightenedColor);
+        enemy.Initialize(maze, row, col, moveSpeed, enemyScale.y * 0.5f);
     }
 
     // 유령집 내부 칸 목록 (x = 행, y = 열)
