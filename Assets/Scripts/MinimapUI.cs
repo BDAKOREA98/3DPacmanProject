@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -144,6 +145,15 @@ public class MinimapUI : MonoBehaviour
         _camera.depth = -10f;
         _camera.targetTexture = _renderTexture;
         _camera.enabled = true;
+
+        // 미니맵은 작은 화면이라 그림자와 후처리가 필요 없다. 이 비용을 아껴 프레임 저하를 막는다.
+        UniversalAdditionalCameraData cameraData = _camera.GetUniversalAdditionalCameraData();
+        cameraData.renderShadows = false;
+        cameraData.renderPostProcessing = false;
+        cameraData.antialiasing = AntialiasingMode.None;
+        _camera.allowHDR = false;
+        _camera.allowMSAA = false;
+        _camera.useOcclusionCulling = false;
 
         // 오디오 리스너가 둘 이상 생기지 않게 한다.
         if (_camera.TryGetComponent(out AudioListener listener))

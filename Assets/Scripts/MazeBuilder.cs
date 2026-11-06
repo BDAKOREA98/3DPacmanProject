@@ -41,8 +41,8 @@ public class MazeBuilder : MonoBehaviour
         int cols = MazeLayout.ColCount;
 
         // 모든 벽/바닥이 같은 Material을 공유한다. (큐브마다 Material이 복제되지 않는다)
-        _wallMaterial = GetMaterial("MazeWall", wallColor);
-        _floorMaterial = GetMaterial("MazeFloor", floorColor);
+        _wallMaterial = MaterialUtil.GetShared("MazeWall", wallColor);
+        _floorMaterial = MaterialUtil.GetShared("MazeFloor", floorColor);
 
         CreateFloor(cols, rows);
 
@@ -114,62 +114,14 @@ public class MazeBuilder : MonoBehaviour
         cube.transform.localPosition = localPosition;
         cube.transform.localScale = localScale;
 
-        cube.GetComponent<Renderer>().sharedMaterial = material;
+        Renderer cubeRenderer = cube.GetComponent<Renderer>();
+        cubeRenderer.sharedMaterial = material;
+
+        // 벽/바닥은 그림자를 만들지도 받지도 않게 해 그림자 렌더링 비용을 줄인다. (수백 개의 그림자 캐스터 제거)
+        cubeRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        cubeRenderer.receiveShadows = false;
 
         RegisterCreated(cube, "Build Maze");
-    }
-
-    /// <summary>
-    /// 기본 큐브 Material을 복사해 색만 바꾼 Material을 돌려준다.
-    /// 에디터에서 미리 만들 때는 Assets/Materials 에 에셋으로 저장해 씬에 계속 남게 한다.
-    /// </summary>
-    private static Material GetMaterial(string materialName, Color color)
-    {
-#if UNITY_EDITOR
-        if (!Application.isPlaying)
-        {
-            const string folder = "Assets/Materials";
-            string path = $"{folder}/{materialName}.mat";
-
-            Material asset = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (asset == null)
-            {
-                if (!AssetDatabase.IsValidFolder(folder))
-                {
-                    AssetDatabase.CreateFolder("Assets", "Materials");
-                }
-
-                asset = CreateColoredMaterial(materialName);
-                AssetDatabase.CreateAsset(asset, path);
-            }
-
-            asset.color = color;
-            EditorUtility.SetDirty(asset);
-            AssetDatabase.SaveAssetIfDirty(asset);
-            return asset;
-        }
-#endif
-        Material material = CreateColoredMaterial(materialName);
-        material.color = color;
-        return material;
-    }
-
-    // 렌더 파이프라인(URP)의 기본 큐브 Material과 같은 셰이더로 새 Material을 만든다.
-    private static Material CreateColoredMaterial(string materialName)
-    {
-        GameObject temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        Material source = temp.GetComponent<Renderer>().sharedMaterial;
-
-        if (Application.isPlaying)
-        {
-            Destroy(temp);
-        }
-        else
-        {
-            DestroyImmediate(temp);
-        }
-
-        return new Material(source) { name = materialName };
     }
 
     private void MarkSceneChanged()

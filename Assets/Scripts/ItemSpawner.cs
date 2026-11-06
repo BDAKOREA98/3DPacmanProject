@@ -19,6 +19,8 @@ public class ItemSpawner : MonoBehaviour
     [SerializeField] private int itemScore = 10;
     [SerializeField] private int bigItemScore = 50;
 
+    private Material _itemMaterial;
+
     private void Start()
     {
         if (transform.childCount == 0)
@@ -42,6 +44,9 @@ public class ItemSpawner : MonoBehaviour
         int rows = MazeLayout.RowCount;
         int cols = MazeLayout.ColCount;
         float cellSize = maze.CellSize;
+
+        // 모든 아이템이 Material 하나를 공유한다. (아이템마다 Material이 복제되지 않는다)
+        _itemMaterial = MaterialUtil.GetShared("MazeItem", itemColor);
 
         for (int row = 0; row < rows; row++)
         {
@@ -109,7 +114,10 @@ public class ItemSpawner : MonoBehaviour
         // 플레이어를 막지 않도록 Trigger로 설정
         item.GetComponent<Collider>().isTrigger = true;
 
-        item.GetComponent<Renderer>().material.color = itemColor;
+        Renderer itemRenderer = item.GetComponent<Renderer>();
+        itemRenderer.sharedMaterial = _itemMaterial;
+        itemRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        itemRenderer.receiveShadows = false;
 
         item.AddComponent<Item>().Initialize(score, isBig);
     }

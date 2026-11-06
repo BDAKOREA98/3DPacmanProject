@@ -265,7 +265,8 @@ public class Enemy : MonoBehaviour
         _row = _targetRow;
         _col = _targetCol;
 
-        Teleport(new Vector3(target.x, _rigidbody.position.y, target.z));
+        // 칸 중심으로 위치를 맞춘다. 오차가 아주 작으므로 보간을 깨지 않도록 Rigidbody 위치만 보정한다.
+        _rigidbody.position = new Vector3(target.x, _rigidbody.position.y, target.z);
 
         ApplyTunnelWarp();
         ChooseNextTarget();
